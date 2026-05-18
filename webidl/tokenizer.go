@@ -237,8 +237,9 @@ func (t *tokenState) step() error {
 			return &TokenizeError{Line: t.line, Message: "unterminated string literal"}
 		}
 		val := t.src[t.pos : t.pos+1+end+1]
-		t.line += strings.Count(val, "\n")
+		// Emit at the token's start line, then advance t.line for tokens that follow.
 		t.emit(TokString, val)
+		t.line += strings.Count(val, "\n")
 		t.pos += 1 + end + 1
 		return nil
 	}
