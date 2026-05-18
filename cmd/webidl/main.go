@@ -50,7 +50,10 @@ func main() {
 	}
 
 	if *tree {
-		printTree(os.Stdout, defs)
+		if err := printTree(os.Stdout, defs); err != nil {
+			fmt.Fprintln(os.Stderr, "write:", err)
+			os.Exit(1)
+		}
 		return
 	}
 	shaped := webidl.ToJSONShape(defs)
@@ -59,13 +62,33 @@ func main() {
 		fmt.Fprintln(os.Stderr, "marshal:", err)
 		os.Exit(1)
 	}
-	os.Stdout.Write(out)
-	os.Stdout.Write([]byte{'\n'})
+	if _, err := os.Stdout.Write(append(out, '\n')); err != nil {
+		fmt.Fprintln(os.Stderr, "write:", err)
+		os.Exit(1)
+	}
+}
+
+// errWriter wraps an io.Writer so that callers can fire-and-forget many Write
+// calls and check a single Err at the end. Subsequent writes after an error
+// are no-ops (cf. bufio.Writer's error-sticky behavior).
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (e *errWriter) Write(p []byte) (int, error) {
+	if e.err != nil {
+		return 0, e.err
+	}
+	n, err := e.w.Write(p)
+	e.err = err
+	return n, err
 }
 
 // printTree renders a compact human-readable summary of the AST. It prefers
 // readability over completeness — for the full picture use the default JSON.
-func printTree(w io.Writer, defs []webidl.Definition) {
+func printTree(out io.Writer, defs []webidl.Definition) error {
+	w := &errWriter{w: out}
 	for _, d := range defs {
 		switch x := d.(type) {
 		case *webidl.Interface:
@@ -136,6 +159,7 @@ func printTree(w io.Writer, defs []webidl.Definition) {
 			fmt.Fprintf(w, "callback %s = %s (%s);\n", x.Name, fmtType(x.ReturnType), strings.Join(args, ", "))
 		}
 	}
+	return w.err
 }
 
 func fmtMember(m webidl.Member) string {

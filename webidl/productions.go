@@ -1038,8 +1038,7 @@ func (p *parser) parseArgument() *Argument {
 		name = p.consume(ArgumentNameKeywords...)
 	}
 	if name == nil {
-		p.unconsume(start)
-		return nil
+		p.errorf("Argument lacks a name")
 	}
 	a.Name = unescape(name.Value)
 	if a.Optional {

@@ -228,13 +228,16 @@ func (t *tokenState) step() error {
 		// Fall through to punctuation/other.
 	}
 
-	// String.
+	// String. webidl2.js's regex permits any non-`"` byte inside, including
+	// newlines; preserve that, but update line accounting so errors after a
+	// multi-line literal still report the right line.
 	if c == '"' {
 		end := strings.IndexByte(t.src[t.pos+1:], '"')
 		if end < 0 {
 			return &TokenizeError{Line: t.line, Message: "unterminated string literal"}
 		}
 		val := t.src[t.pos : t.pos+1+end+1]
+		t.line += strings.Count(val, "\n")
 		t.emit(TokString, val)
 		t.pos += 1 + end + 1
 		return nil
